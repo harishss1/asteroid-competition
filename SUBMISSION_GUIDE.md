@@ -117,3 +117,9 @@ for i, bid in enumerate(bids):
 - The mineral value, extraction yield, or extraction delay during competition (you must estimate these from the ~95 measurement features)
 - Other teams' strategies
 - Advance knowledge of which specific asteroids will appear in competition
+
+## How You Win
+
+You compete against other participants and hidden baseline strategies. At the end of each sector, all pending extractions settle and players rank by **total capital**. Top performers advance; the rest are eliminated.
+
+The winner is the player with the **highest capital after all extractions settle** in the final sector. Asteroids won in later rounds still count — revenue is collected at sector end even if extraction delay extends past the final round.

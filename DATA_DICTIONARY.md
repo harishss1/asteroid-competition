@@ -1,8 +1,8 @@
 # Data Dictionary
 
-Feature reference for the Asteroid Auction Challenge training dataset. Each row represents one asteroid with ~95 measurement features and four target variables available only in training data (`mineral_value`, `extraction_yield`, `extraction_delay`, `recovered_value`).
+Feature reference for the Asteroid Auction Challenge training dataset. Each row represents one asteroid with ~95 measurement features and target variables available only in training data.
 
-Market conditions and data collection methods may differ between the training dataset and live competition sectors.
+**Important**: Market conditions and data collection methods may differ between the training dataset and live competition sectors. The training data spans multiple time periods to help you assess model generalization.
 
 ---
 
@@ -61,7 +61,7 @@ Derived from ephemeris data and belt surveys.
 | `communication_delay` | One-way light-time communication delay in minutes. |
 | `orbital_stability_score` | Long-term orbital stability assessment (0=unstable, 1=highly stable). |
 | `conjunction_frequency` | Rate of close approaches with other bodies (scaled). |
-| `lucky_number` | Numerological favorability score (0-10) derived from orbital resonance patterns, per the Ceres Institute for Astroprospecting (2246). |
+| `lucky_number` | Numerological favorability score (0-10) derived from orbital resonance patterns, per the Ceres Institute for Astroprospecting (2246). *Note: This methodology has not been validated across multiple market cycles.* |
 
 ---
 
@@ -91,8 +91,8 @@ Compiled from prospecting missions. Survey methodology and timing vary.
 | `legal_encumbrance_score` | Degree of legal complications (0=clear, higher=more encumbered). |
 | `environmental_hazard_rating` | Environmental risk assessment (0=benign, 1=severe). |
 | `insurance_risk_class` | Insurance underwriter risk classification (integer, 1=lowest risk, 5=highest risk). |
-| `ai_valuation_estimate` | Automated valuation from the ValuCorp v2.3 pricing model, trained on historical auction data. Released 2246; not yet validated over a full market cycle. |
-| `analyst_consensus_estimate` | Median valuation from a panel of 8 independent mining analysts. |
+| `ai_valuation_estimate` | Automated valuation from the ValuCorp v2.3 pricing model, trained on historical auction data. *Released 2246; not yet validated over a full market cycle. Use with caution.* |
+| `analyst_consensus_estimate` | Median valuation from a panel of 8 independent mining analysts. *Analyst track records vary; historical accuracy has not been independently verified.* |
 
 ---
 
@@ -122,8 +122,8 @@ Snapshot of market conditions at the time of auction. Prices reflect current spo
 | `regulatory_burden_score` | Regulatory overhead for operations in this jurisdiction. |
 | `supply_chain_disruption_risk` | Assessed risk of supply chain disruptions. |
 | `technology_readiness_level` | Technology readiness level of available equipment (scale 5-9). |
-| `media_hype_score` | Composite media attention index from mining industry newswires (0-10+). Reflects public and media interest in the claim. |
-| `social_sentiment_score` | Aggregated sentiment from mining industry social feeds. Normalized to zero mean. |
+| `media_hype_score` | Composite media attention index from mining industry newswires (0-10+). Reflects public and media interest in the claim. *Media coverage may not correlate with actual value.* |
+| `social_sentiment_score` | Aggregated sentiment from mining industry social feeds. Normalized to zero mean. *Social sentiment is notoriously noisy.* |
 
 ---
 
@@ -159,6 +159,15 @@ Available in training data only. Not available during competition.
 | `toxic_outgassing_impact` | Binary (0 or 1). Set to 1 if this asteroid was impacted by toxic outgassing from another asteroid in the same cluster. These rows have zeroed `mineral_value` and `extraction_yield` — filter them when training regression models. |
 
 **Important**: Rows with `catastrophe_type != "none"` or `toxic_outgassing_impact == 1` have zeroed regression targets. When training models for `mineral_value` or `extraction_yield`, filter these rows. The catastrophe and impact columns allow you to learn the probability of these events from features.
+
+---
+
+## Metadata Columns
+
+| Feature | Description |
+|---------|-------------|
+| `asteroid_id` | Unique identifier for each asteroid. |
+| `time_period` | Data collection period identifier (e.g., `"2045-Q1"`, `"2045-Q2"`, etc.). The training data spans multiple time periods with slightly different market conditions. **Do not use this as a model feature** — it is provided to help you test model generalization by splitting train/validation across periods. Competition will use a different, unseen time period. |
 
 ---
 

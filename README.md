@@ -102,12 +102,18 @@ The training data includes a `catastrophe_type` target column so you can learn c
 The competition runs across three sectors with elimination:
 
 | Sector | Rounds | Asteroids/Round | Capital | Market | Advance |
-|--------|--------|-----------------|---------|--------|---------|
+|--------|--------|-----------------|---------|--------|--------|
 | **Outer Rim** | 50 | 10 | $10,000 | Bust | Top 50% |
 | **Inner Belt** | 50 | 10 | $8,000 | Normal | Top 40% |
 | **Core Belt** | 100 | 10 | $6,000 | Boom | Final rank |
 
 Each sector resets capital. Economic conditions change between sectors.
+
+### How You Win
+
+Your strategies will compete against other participants and several hidden baseline strategies. At the end of each sector, all pending extractions are settled (revenue collected) and players are ranked by **total capital**. The top performers advance; the rest are eliminated.
+
+In the final sector, the player with the **highest capital after all extractions settle** wins. This means asteroids you win in later rounds still count — their revenue is collected at sector end, even if the extraction delay extends past the final round. Keep bidding strategically until the end.
 
 ---
 
