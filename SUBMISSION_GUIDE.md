@@ -114,6 +114,35 @@ Starting from round 2, `round_info` includes:
 
 - **`market_history`**: Cumulative stats including total asteroids sold, catastrophes observed, recent average winning bids, and your own win/spending totals.
 
+## Environment Setup
+
+Before developing your strategy, set up your environment with the allowed packages.
+
+### Option 1: Conda (Recommended)
+
+```bash
+conda env create -f environment.yml
+conda activate asteroid-competition
+```
+
+This installs all allowed packages including XGBoost, LightGBM, CatBoost, PyTorch, and more.
+
+### Option 2: pip
+
+Install core dependencies:
+```bash
+pip install -e .
+```
+
+Or install with all ML packages:
+```bash
+pip install -e ".[all]"
+```
+
+See `README.md` for the complete list of allowed packages and versions.
+
+---
+
 ## Test Your Strategy
 
 Use the training data (`data/training.parquet`) to develop and validate your model. The training data includes target variables not available during competition: `mineral_value`, `extraction_yield`, `extraction_delay`, `catastrophe_type`, and `toxic_outgassing_impact`.
@@ -136,7 +165,7 @@ for _, row in df.head(10).iterrows():
 # Simulate a round
 bids = price_asteroids(batch, capital=10000.0, round_info={
     "round_number": 1,
-    "total_rounds": 50,
+    "total_rounds": 100,
     "sector_name": "Outer Rim",
     "asteroids_this_round": 10,
     "risk_free_rate": 0.002,
@@ -208,7 +237,7 @@ def price_asteroids(asteroids, capital, round_info):
 2. **No network access.** Strategies run in an isolated sandbox with no internet.
 3. **2-second timeout.** Your function must return within 2 seconds per round.
 4. **No arbitrary filesystem access.** You can only read your own model file.
-5. **Allowed packages:** numpy, pandas, scikit-learn, xgboost, lightgbm, statsmodels, torch (CPU), joblib. Other imports may fail.
+5. **Allowed packages:** numpy, pandas, scipy, scikit-learn, xgboost, lightgbm, catboost, statsmodels, torch (CPU), joblib. **Versions are pinned exactly** — see `README.md` for the version table. Using different versions may cause model loading failures.
 
 ## What You Have
 

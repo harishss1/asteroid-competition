@@ -135,10 +135,57 @@ See `SUBMISSION_GUIDE.md` for detailed submission instructions, rules, and const
 
 ---
 
-## Dependencies
+## Environment Setup
 
-Players can use any Python packages in their strategy files. We recommend:
-- `numpy`, `pandas` for data analysis
-- `scikit-learn` for modeling
+### Option 1: Conda (Recommended)
 
-These are listed in `pyproject.toml`. Install with `uv sync` or `pip install -e .`
+Create the competition environment with all allowed packages:
+
+```bash
+conda env create -f environment.yml
+conda activate asteroid-competition
+```
+
+### Option 2: pip
+
+Install core dependencies:
+```bash
+pip install -e .
+```
+
+Install with ML packages (XGBoost, LightGBM, CatBoost, statsmodels):
+```bash
+pip install -e ".[ml]"
+```
+
+Install with PyTorch:
+```bash
+pip install -e ".[torch]"
+```
+
+Install everything:
+```bash
+pip install -e ".[all]"
+```
+
+## Allowed Packages
+
+Your strategy can use these packages during competition. **Versions are pinned exactly** — using different versions may cause model loading failures (pickle/joblib compatibility).
+
+| Package | Version | Use Case |
+|---------|---------|----------|
+| **numpy** | 1.26.4 | Array operations |
+| **pandas** | 2.2.0 | Data manipulation |
+| **pyarrow** | 15.0.0 | Parquet file support |
+| **scipy** | 1.12.0 | Scientific computing |
+| **scikit-learn** | 1.4.0 | ML models, preprocessing |
+| **xgboost** | 2.0.3 | Gradient boosting |
+| **lightgbm** | 4.3.0 | Gradient boosting |
+| **catboost** | 1.2.2 | Gradient boosting |
+| **statsmodels** | 0.14.1 | Statistical models |
+| **torch** | 2.2.0 (CPU) | Neural networks |
+| **joblib** | 1.3.2 | Model serialization |
+
+⚠️ **Important**: Train your models using these exact versions. Models saved with different library versions may fail to load in the competition sandbox.
+
+Other imports may fail in the competition sandbox.
