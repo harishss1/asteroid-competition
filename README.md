@@ -99,28 +99,38 @@ The training data includes a `catastrophe_type` target column so you can learn c
 
 ### Tournament Structure
 
-The competition runs across three sectors with elimination:
+The competition runs in two phases:
 
-| Sector | Rounds | Asteroids/Round | Capital | Market | Advance |
-|--------|--------|-----------------|---------|--------|--------|
-| **Outer Rim** | 50 | 10 | $10,000 | Bust | Top 50% |
-| **Inner Belt** | 50 | 10 | $8,000 | Normal | Top 40% |
-| **Core Belt** | 100 | 10 | $6,000 | Boom | Final rank |
+**1. Preliminary Rounds**
+- Teams are randomly assigned to groups of 5
+- Each team participates in multiple different groups
+- Groups play in Outer Rim (bust) or Inner Belt (normal) sectors
+- Your score is your average final capital across all appearances
+- Top 8 teams advance to finals
 
-Each sector resets capital. Economic conditions change between sectors.
+**2. Finals**
+- All 8 finalists compete together
+- Finals run 5 times across different sectors (boom-heavy)
+- Winner determined by average capital across all runs
+
+| Sector | Capital | Market | Risk-Free Rate |
+|--------|---------|--------|----------------|
+| **Outer Rim** | $10,000 | Bust (0.7×) | ~0.2%/round |
+| **Inner Belt** | $8,000 | Normal (1.0×) | ~0.3%/round |
+| **Core Belt** | $6,000 | Boom (1.4×) | ~0.4%/round |
 
 ### How You Win
 
-Your strategies will compete against other participants and several hidden baseline strategies. At the end of each sector, all pending extractions are settled (revenue collected) and players are ranked by **total capital**. The top performers advance; the rest are eliminated.
+Your preliminary ranking is based on **average performance across many different opponent combinations**. This rewards consistent strategies over lucky matchups.
 
-In the final sector, the player with the **highest capital after all extractions settle** wins. This means asteroids you win in later rounds still count — their revenue is collected at sector end, even if the extraction delay extends past the final round. Keep bidding strategically until the end.
+In the finals, the **8 best teams** compete head-to-head across multiple runs. The winner is determined by **average final capital** — not a single elimination bracket. Asteroids won in later rounds still count; revenue is collected at sector end.
 
 ---
 
 ## Getting Started
 
 ### What You Have
-- `data/training.csv` — 10,000 asteroids with ~95 features and target values
+- `data/training.parquet` — 10,000 asteroids with ~95 features and target values
 - `DATA_DICTIONARY.md` — description of every feature
 - `strategies/example_strategy.py` — a simple baseline bidder to study
 
@@ -132,7 +142,7 @@ Load the training data and explore. The training data includes target variables 
 ```python
 import pandas as pd
 
-df = pd.read_csv("data/training.csv")
+df = pd.read_parquet("data/training.parquet")
 print(df.shape)          # (10000, 97)
 print(df.describe())     # summary statistics
 ```

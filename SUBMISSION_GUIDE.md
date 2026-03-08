@@ -2,7 +2,11 @@
 
 ## Function Signature
 
-Create a single Python file with your strategy:
+Create a single Python file with your strategy. You can use either the **simple interface** (one function) or the **ML interface** (two functions for heavy model loading).
+
+### Simple Interface
+
+For strategies without heavy ML models:
 
 ```python
 # my_strategy.py
@@ -43,6 +47,56 @@ def price_asteroids(asteroids: list[dict], capital: float, round_info: dict) -> 
     return [0.0] * len(asteroids)
 ```
 
+### ML Interface (Recommended for Heavy Models)
+
+For strategies using sklearn, PyTorch, XGBoost, or other ML libraries with slow import/load times, use the **two-function interface**:
+
+```python
+# my_ml_strategy.py
+
+STRATEGY_NAME = "ML Corp"
+
+def load_model():
+    """
+    Called ONCE at tournament start with 30-second timeout.
+    Use this to import heavy libraries and load your trained model.
+    
+    Returns:
+        Any object (dict, model, etc.) that will be passed to price_asteroids.
+    """
+    import joblib
+    import os
+    model_dir = os.path.dirname(os.path.abspath(__file__))
+    return joblib.load(os.path.join(model_dir, "my_model.joblib"))
+
+
+def price_asteroids(asteroids: list[dict], capital: float, round_info: dict, model=None) -> list[float]:
+    """
+    Called each round with 2-second timeout.
+    
+    Args:
+        asteroids, capital, round_info: Same as simple interface
+        model: The object returned by load_model() (or None if load_model not defined)
+    
+    Returns:
+        List of bid amounts (same length as asteroids).
+    """
+    if model is None:
+        return [0.0] * len(asteroids)  # Fallback if model failed to load
+    
+    # Use your pre-loaded model for fast predictions
+    predictions = model.predict(...)
+    return compute_bids(predictions, capital)
+```
+
+**Key points for ML interface:**
+- `load_model()` is optional but recommended for ML strategies
+- `load_model()` has a **30-second timeout** for importing libraries and loading models
+- `price_asteroids()` has a **2-second timeout** per round — keep it fast!
+- The model object is **deep-copied** before each round to prevent state storage
+- Do NOT store state in the model object between rounds — it will be reset
+- Heavy imports (torch, sklearn, xgboost) should happen inside `load_model()`, not at module level
+
 ## Portfolio Bidding
 
 You see all asteroids in a round at once and submit bids on the entire batch simultaneously. This means you can:
@@ -62,14 +116,14 @@ Starting from round 2, `round_info` includes:
 
 ## Test Your Strategy
 
-Use the training data (`data/training.csv`) to develop and validate your model. The training data includes target variables not available during competition: `mineral_value`, `extraction_yield`, `extraction_delay`, `catastrophe_type`, and `toxic_outgassing_impact`.
+Use the training data (`data/training.parquet`) to develop and validate your model. The training data includes target variables not available during competition: `mineral_value`, `extraction_yield`, `extraction_delay`, `catastrophe_type`, and `toxic_outgassing_impact`.
 
 **Important**: Rows with `catastrophe_type != "none"` or `toxic_outgassing_impact == 1` have zeroed `mineral_value` and `extraction_yield`. Filter these when training regression models.
 
 ```python
 import pandas as pd
 
-df = pd.read_csv("data/training.csv")
+df = pd.read_parquet("data/training.parquet")
 
 # Build a batch of asteroid feature dicts (drop target columns)
 target_cols = ["mineral_value", "extraction_yield", "extraction_delay", "catastrophe_type", "toxic_outgassing_impact"]
@@ -98,17 +152,67 @@ for i, bid in enumerate(bids):
     print(f"Asteroid {i}: bid={bid:.2f}, mineral_value={mineral_val:.2f}")
 ```
 
+## Submission Format
+
+Your submission is a **directory** containing:
+
+```
+my_submission/
+├── strategy.py      # Required: your bidding strategy
+└── model.joblib     # Optional: one pre-trained model file
+```
+
+### Strategy File (Required)
+
+A single Python file named `strategy.py` with your `price_asteroids` function.
+
+### Model File (Optional)
+
+You may include **one** pre-trained model file. Supported formats:
+
+| Format | Extension | Framework |
+|--------|-----------|----------|
+| Joblib | `.joblib` | scikit-learn |
+| Pickle | `.pkl` | scikit-learn, general |
+| PyTorch | `.pt`, `.pth` | PyTorch |
+| SafeTensors | `.safetensors` | Any (recommended for large models) |
+| JSON | `.json` | XGBoost, LightGBM, custom |
+
+**Constraints:**
+- Maximum file size: **50 MB**
+- Only one model file allowed
+- Model must be loadable without network access
+
+### Loading Your Model
+
+Use `__file__` to locate your model relative to your strategy:
+
+```python
+import os
+import joblib
+
+# Load model at module level (runs once)
+_model_path = os.path.join(os.path.dirname(__file__), "model.joblib")
+_model = joblib.load(_model_path)
+
+def price_asteroids(asteroids, capital, round_info):
+    # Use _model for predictions
+    ...
+```
+
+---
+
 ## Rules
 
-1. **One file per team.** Your entire strategy must be in a single `.py` file.
-2. **No network access.** Strategies run in a sandbox. No HTTP calls, no sockets.
-3. **2-second timeout.** Your function must return within 2 seconds per round (all asteroids in the batch).
-4. **No filesystem access.** Don't read/write files during competition.
-5. **Standard library + numpy/pandas allowed.** Other imports may not be available in the competition environment.
+1. **One strategy file + one optional model file.** Your submission directory contains `strategy.py` and optionally one model file.
+2. **No network access.** Strategies run in an isolated sandbox with no internet.
+3. **5-second timeout.** Your function must return within 5 seconds per round.
+4. **No arbitrary filesystem access.** You can only read your own model file.
+5. **Allowed packages:** numpy, pandas, scikit-learn, xgboost, lightgbm, statsmodels, torch (CPU), joblib. Other imports may fail.
 
 ## What You Have
 
-- **Training data**: `data/training.csv` with ~95 features + target values for 10,000 asteroids
+- **Training data**: `data/training.parquet` with ~95 features + target values for 10,000 asteroids
 - **Feature reference**: `DATA_DICTIONARY.md` with descriptions of every feature
 - **Example strategy**: `strategies/example_strategy.py` — a simple heuristic bidder
 
@@ -118,8 +222,43 @@ for i, bid in enumerate(bids):
 - Other teams' strategies
 - Advance knowledge of which specific asteroids will appear in competition
 
+## Tournament Structure
+
+The competition runs in two phases:
+
+### 1. Preliminary Rounds
+
+- All teams are randomly assigned to **groups of 5**
+- Each team participates in **multiple different groups** (typically 10)
+- Each group plays through one randomly selected sector (Outer Rim, Inner Belt, or Core Belt)
+- Your score is your **average final capital** across all group appearances
+- The **top 8 teams** by average score advance to the finals
+
+### 2. Finals
+
+- All 8 finalists compete together
+- The finals are run **5 times** across different sectors
+- Your final score is your **average capital** across all 5 runs
+- The team with the highest average wins
+
+### Sectors
+
+| Sector | Economic Phase | Starting Capital | Risk-Free Rate |
+|--------|---------------|------------------|----------------|
+| Outer Rim | Bust (0.7× prices) | $10,000 | ~0.2%/round |
+| Inner Belt | Normal (1.0× prices) | $8,000 | ~0.3%/round |
+| Core Belt | Boom (1.4× prices) | $6,000 | ~0.4%/round |
+
+**Important**: 
+- **Preliminary rounds** use only Outer Rim and Inner Belt (no boom) — similar to training data
+- **Finals** include all three sectors, with boom appearing frequently
+- Risk-free rate varies slightly each round within the sector's range
+- Mineral prices and economic phase are constant within each group run
+
 ## How You Win
 
-You compete against other participants and hidden baseline strategies. At the end of each sector, all pending extractions settle and players rank by **total capital**. Top performers advance; the rest are eliminated.
+You compete against other participants in randomized groups. Your preliminary ranking is based on **average performance across many different opponent combinations**. This rewards consistent strategies over lucky matchups.
 
-The winner is the player with the **highest capital after all extractions settle** in the final sector. Asteroids won in later rounds still count — revenue is collected at sector end even if extraction delay extends past the final round.
+In the finals, the **8 best teams** compete head-to-head across multiple runs. The winner is determined by **average final capital** across all final runs — not a single elimination bracket.
+
+Asteroids won in later rounds still count. Revenue is collected at sector end even if extraction delay extends past the final round.
