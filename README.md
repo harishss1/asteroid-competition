@@ -135,6 +135,17 @@ See `SUBMISSION_GUIDE.md` for detailed submission instructions, rules, and const
 
 ---
 
+## Using AI Tools
+
+We encourage participants to use AI assistants (ChatGPT, Claude, Copilot, etc.) for:
+- **Understanding** the problem, data, and domain
+- **Ideating** on modeling approaches and strategies
+- **Coding** your solution
+
+This competition is about building the best asteroid valuation strategy — use whatever tools help you get there.
+
+---
+
 ## Environment Setup
 
 ### Option 1: Conda (Recommended)
