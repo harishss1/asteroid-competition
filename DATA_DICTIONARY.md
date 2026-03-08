@@ -36,9 +36,9 @@ Measured by remote sensing and, where available, surface probe data.
 | `estimated_volume` | float64 | Derived: mass / density. |
 | `surface_gravity` | float64 | Derived surface gravitational acceleration. |
 | `escape_velocity` | float64 | Derived escape velocity from the surface. |
-| `composition_heterogeneity` | float64 | Compositional variability across the body (0=uniform, 1=highly mixed). |
-| `subsurface_anomaly_score` | float64 | Radar-derived score indicating subsurface structural anomalies. |
-| `crystalline_fraction` | float64 | Fraction of mineral content in crystalline vs amorphous form. |
+| `composition_heterogeneity` | float64 | Compositional variability across the body (0=uniform, 1=highly mixed). *Uniform composition can simplify extraction planning.* |
+| `subsurface_anomaly_score` | float64 | Radar-derived score indicating subsurface structural anomalies. *Anomalies may indicate valuable deposits or hidden risks.* |
+| `crystalline_fraction` | float64 | Fraction of mineral content in crystalline vs amorphous form. *Higher crystalline content may indicate more extractable ore.* |
 
 ---
 
@@ -75,7 +75,7 @@ Compiled from prospecting missions. Survey methodology and timing vary.
 |---------|------|-------------|
 | `survey_confidence` | float64 | Overall confidence rating of the survey data (0-1). |
 | `probe_type` | str | Survey probe deployed. Values: `"passive"`, `"active_flyby"`, `"landing"`, `"drill_core"`. |
-| `surveyor_reputation` | float64 | Reputation score of the surveying firm (0-1). |
+| `surveyor_reputation` | float64 | Reputation score of the surveying firm (0-1). *Reputation scores are self-reported and updated annually.* |
 | `num_surveys` | int64 | Number of independent survey missions conducted. |
 | `conflicting_results` | int64 | Binary flag (0 or 1). Set to 1 if surveys produced contradictory findings. |
 | `extraction_difficulty` | float64 | Engineering assessment of extraction difficulty (0=trivial, 1=extremely difficult). |
@@ -84,18 +84,18 @@ Compiled from prospecting missions. Survey methodology and timing vary.
 | `data_completeness` | float64 | Fraction of standard survey measurements successfully collected (0-1). |
 | `spectral_resolution` | float64 | Resolution quality of the spectroscopic instruments used (0-1). |
 | `ground_truth_samples` | int64 | Number of physical samples returned for laboratory analysis. |
-| `estimated_extraction_cost` | float64 | Surveyor's estimate of total extraction cost in thousands of credits. |
-| `drilling_feasibility` | float64 | Engineering assessment of drilling viability (0=infeasible, 1=ideal). |
+| `estimated_extraction_cost` | float64 | Surveyor's estimate of total extraction cost in thousands of credits. *Estimates assume standard equipment configurations.* |
+| `drilling_feasibility` | float64 | Engineering assessment of drilling viability (0=infeasible, 1=ideal). *Based on current drilling technology standards.* |
 | `equipment_compatibility` | float64 | Compatibility score with standard mining equipment (0-1). |
 | `estimated_yield_tonnes` | float64 | Surveyor's estimate of extractable material in tonnes. |
 | `survey_anomaly_flag` | int64 | Binary flag. Set to 1 if the survey team flagged unusual readings. |
-| `dual_phase_extraction` | int64 | Binary flag. Set to 1 if asteroid requires two-phase extraction. |
+| `dual_phase_extraction` | int64 | Binary flag. Set to 1 if asteroid requires two-phase extraction. *Determined during survey based on detected ore composition.* |
 | `previous_claim_history` | int64 | Number of times this asteroid has been previously claimed and abandoned. |
 | `legal_encumbrance_score` | float64 | Degree of legal complications (0=clear, higher=more encumbered). |
 | `environmental_hazard_rating` | float64 | Environmental risk assessment (0=benign, 1=severe). |
 | `insurance_risk_class` | int64 | Insurance underwriter risk classification (1=lowest risk, 5=highest risk). |
 | `ai_valuation_estimate` | float64 | Automated valuation from ValuCorp v2.3. *Use with caution.* |
-| `analyst_consensus_estimate` | float64 | Median valuation from independent mining analysts. |
+| `analyst_consensus_estimate` | float64 | Median valuation from independent mining analysts. *Recent investigations have raised questions about analyst independence.* |
 
 ---
 
@@ -139,7 +139,7 @@ Local space environment near the asteroid.
 | `radiation_level` | float64 | Ambient radiation level in the asteroid's vicinity. |
 | `micrometeorite_density` | float64 | Local micrometeorite flux density. |
 | `solar_flux` | float64 | Solar energy flux at the asteroid's location (relative to Earth=1.0). |
-| `infrastructure_proximity` | float64 | Proximity to existing mining infrastructure (0=remote, 1=well-connected). |
+| `infrastructure_proximity` | float64 | Proximity to existing mining infrastructure (0=remote, 1=well-connected). *Measured at time of survey; infrastructure expands over time.* |
 | `navigation_complexity` | float64 | Complexity of navigation in the local orbital environment. |
 | `rescue_response_time_hours` | float64 | Estimated emergency response time from nearest rescue facility. |
 | `local_jurisdiction_stability` | float64 | Political stability of the governing jurisdiction (0=unstable, 1=stable). |
@@ -180,17 +180,13 @@ Catastrophe probability is driven by observable features. Key risk indicators:
 
 | Risk Factor | Description |
 |-------------|-------------|
-| **Structural Integrity** | Primary driver. Low integrity (<0.5) significantly increases risk. |
-| **Density** | Low density (<3.0 g/cm³) suggests hollow structures prone to collapse. |
-| **Porosity** | High porosity (>0.4) combined with low density indicates rubble pile structure. |
-| **Volatile Content** | High volatile content (>0.35) increases toxic outgassing risk. |
-| **Survey Confidence** | Low confidence (<0.6) indicates unknown risks. |
+| **Structural Integrity** | Primary driver. Low integrity significantly increases risk. |
+| **Density** | Low density may suggest hollow structures prone to collapse. |
+| **Porosity** | High porosity combined with low density indicates fragile rubble pile structure. |
+| **Volatile Content** | High volatile content increases toxic outgassing risk. |
+| **Survey Confidence** | Low confidence means risks are harder to assess. |
 
-**Risk Tiers**: Asteroids fall into approximate risk categories based on feature combinations:
-- **Low Risk** (~3% catastrophe rate): High integrity, good survey confidence, low porosity, low volatiles
-- **Moderate Risk** (~10% rate): Average conditions
-- **High Risk** (~25% rate): Low integrity OR high volatiles OR poor structural indicators
-- **Critical Risk** (~45% rate): Very low integrity OR extreme conditions
+Catastrophe rates vary significantly based on feature combinations. Asteroids with multiple risk factors are considerably more dangerous than those with strong structural indicators
 
 ## Catastrophe Penalties
 
