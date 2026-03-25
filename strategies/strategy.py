@@ -1,11 +1,16 @@
 """
-Asteroid Auction Challenge — Competition Strategy FINAL
+Asteroid Auction Challenge — Competition Strategy (No Trap Features)
 Team: Harish Corp
 
-Architecture: XGBoost for all 5 models, 7 interaction features.
-This is the v2 configuration confirmed best by verify_model.py:
-  - Value MAE=9.62, corr=0.9992
-  - thresh=0.35: precision=0.989, recall=1.000 (catastrophes reliably blocked)
+Removed trap features: ai_valuation_estimate, analyst_consensus_estimate,
+                       media_hype_score, lucky_number, social_sentiment_score
+
+New value proxy features replace lost signal:
+  eng_mass_x_mineral_score  (corr=0.676) — best single predictor
+  eng_weighted_mineral_score (corr=0.528)
+  eng_cycle_adj_score        (corr=0.525)
+  eng_mineral_concentration  (corr=0.461)
+  eng_value_density          (corr=0.448)
 
 ML Interface:
   load_model()      — called ONCE at tournament start, 30s timeout
@@ -19,14 +24,20 @@ STRATEGY_NAME = "Harish Corp"
 
 # ── Feature drop list (must match train_model.py exactly) ────────────────────
 _DROP = {
-    "asteroid_id", "time_period", "lucky_number", "social_sentiment_score",
+    "asteroid_id", "time_period",
+    # trap features — explicitly excluded per competition feedback
+    "ai_valuation_estimate", "analyst_consensus_estimate",
+    "media_hype_score", "lucky_number", "social_sentiment_score",
+    # redundant orbital
     "communication_delay", "orbital_period", "aphelion_distance", "perihelion_distance",
+    # redundant physical
     "estimated_volume", "surface_gravity",
+    # target columns
     "mineral_value", "extraction_yield", "extraction_delay",
     "catastrophe_type", "toxic_outgassing_impact",
 }
 
-# Valid categorical values — unknown values get a safe default
+# Valid categorical values
 _VALID_SPECTRAL   = {"C-type", "M-type", "S-type", "X-type"}
 _VALID_REGION     = {"inner", "main", "outer"}
 _VALID_PROBE      = {"active_flyby", "drill_core", "landing", "passive"}
@@ -34,7 +45,7 @@ _DEFAULT_SPECTRAL = "S-type"
 _DEFAULT_REGION   = "main"
 _DEFAULT_PROBE    = "active_flyby"
 
-# Catastrophe penalty constants (from competition rules)
+# Catastrophe penalty constants
 _PENALTY_VOID     = 100.0
 _PENALTY_COLLAPSE = 200.0
 _PENALTY_OUTGAS   = 300.0
@@ -58,20 +69,59 @@ def load_model():
     return joblib.load(model_path)
 
 
-# ── Feature preparation ───────────────────────────────────────────────────────
-def _add_interaction_features(row):
+# ── Feature engineering ───────────────────────────────────────────────────────
+def _engineer_features(row):
     """
-    Compute the 7 interaction features engineered during training.
-    Must match train_model.py exactly — same formula, same column names.
-    Validated: composite_risk corr=+0.212 vs best raw feature -0.174.
-    """
-    si  = float(row.get("structural_integrity", 0.7))
-    vc  = float(row.get("volatile_content", 0.2))
-    po  = float(row.get("porosity", 0.3))
-    sc  = float(row.get("survey_confidence", 0.6))
-    den = float(row.get("density", 4.0))
-    eh  = float(row.get("environmental_hazard_rating", 0.3))
+    Compute all engineered features. Must match train_model.py exactly.
 
+    Value proxy features (replace lost ai_valuation_estimate signal):
+      eng_mass_x_mineral_score: best predictor, corr=0.676 with mineral_value
+      eng_weighted_mineral_score: sum(sig * price), corr=0.528
+
+    Catastrophe interaction features (unchanged from previous version).
+    """
+    # Raw values needed for engineering
+    iron   = float(row.get("mineral_signature_iron", 0) or 0)
+    nickel = float(row.get("mineral_signature_nickel", 0) or 0)
+    cobalt = float(row.get("mineral_signature_cobalt", 0) or 0)
+    plat   = float(row.get("mineral_signature_platinum", 0) or 0)
+    rare   = float(row.get("mineral_signature_rare_earth", 0) or 0)
+    water  = float(row.get("water_ice_fraction", 0) or 0)
+
+    p_iron  = float(row.get("mineral_price_iron", 50) or 50)
+    p_nick  = float(row.get("mineral_price_nickel", 200) or 200)
+    p_cob   = float(row.get("mineral_price_cobalt", 500) or 500)
+    p_plat  = float(row.get("mineral_price_platinum", 2000) or 2000)
+    p_rare  = float(row.get("mineral_price_rare_earth", 800) or 800)
+    p_water = float(row.get("mineral_price_water", 100) or 100)
+
+    mass  = float(row.get("mass", 100) or 100)
+    cycle = float(row.get("economic_cycle_indicator", 1.0) or 1.0)
+    cryst = float(row.get("crystalline_fraction", 0.4) or 0.4)
+
+    si  = float(row.get("structural_integrity", 0.7) or 0.7)
+    vc  = float(row.get("volatile_content", 0.2) or 0.2)
+    po  = float(row.get("porosity", 0.3) or 0.3)
+    sc  = float(row.get("survey_confidence", 0.6) or 0.6)
+    den = float(row.get("density", 4.0) or 4.0)
+    eh  = float(row.get("environmental_hazard_rating", 0.3) or 0.3)
+
+    # ── Value proxy features ──────────────────────────────────────────────────
+    weighted_mineral = (
+        iron * p_iron + nickel * p_nick + cobalt * p_cob
+        + plat * p_plat + rare * p_rare + water * p_water
+    )
+    log_mass = float(np.log1p(mass))
+
+    row["eng_weighted_mineral_score"] = weighted_mineral
+    row["eng_mass_x_mineral_score"]   = log_mass * weighted_mineral
+    row["eng_cycle_adj_score"]        = weighted_mineral * cycle
+    row["eng_mineral_concentration"]  = iron + nickel + cobalt + plat + rare
+    row["eng_value_density"]          = weighted_mineral * cryst
+    row["eng_mass_cycle_mineral"]     = log_mass * cycle * weighted_mineral
+    row["eng_platinum_mass"]          = plat * p_plat * log_mass
+
+    # ── Catastrophe interaction features ─────────────────────────────────────
     row["interact_composite_risk"]        = (1.0 - si) * 0.4 + vc * 0.3 + po * 0.3
     row["interact_volatile_x_integrity"]  = vc * (1.0 - si)
     row["interact_low_integrity_x_poros"] = (1.0 - si) * po
@@ -79,6 +129,7 @@ def _add_interaction_features(row):
     row["interact_volatile_x_porosity"]   = vc * po
     row["interact_env_hazard_x_volatile"] = eh * vc
     row["interact_density_porosity_risk"] = po / (den + 1e-9)
+
     return row
 
 
@@ -86,7 +137,7 @@ def _build_df(asteroids, feature_cols):
     """
     Convert list of feature dicts to DataFrame aligned to training columns.
     Categorical columns kept as strings (pipeline OrdinalEncoder expects strings).
-    Interaction features computed inline.
+    All engineered features computed inline.
     """
     import pandas as pd
 
@@ -111,7 +162,7 @@ def _build_df(asteroids, feature_cols):
                 except (TypeError, ValueError):
                     row[k] = 0.0
 
-        row = _add_interaction_features(row)
+        row = _engineer_features(row)
         rows.append(row)
 
     df = pd.DataFrame(rows)
@@ -124,23 +175,28 @@ def _build_df(asteroids, feature_cols):
 # ── Heuristic fallback (if model not loaded) ──────────────────────────────────
 def _heuristic_value(features):
     """
-    Fallback using third-party estimates directly.
-    ai_valuation_estimate: corr=0.971 with mineral_value, overestimates by ~$83.
-    analyst_consensus_estimate: corr=0.874.
+    Fallback without any third-party estimates.
+    Uses weighted mineral score × mass proxy directly.
     """
-    ai_est      = float(features.get("ai_valuation_estimate", 0) or 0)
-    analyst_est = float(features.get("analyst_consensus_estimate", 0) or 0)
+    iron   = float(features.get("mineral_signature_iron", 0) or 0)
+    nickel = float(features.get("mineral_signature_nickel", 0) or 0)
+    cobalt = float(features.get("mineral_signature_cobalt", 0) or 0)
+    plat   = float(features.get("mineral_signature_platinum", 0) or 0)
+    rare   = float(features.get("mineral_signature_rare_earth", 0) or 0)
+    water  = float(features.get("water_ice_fraction", 0) or 0)
+    p_iron  = float(features.get("mineral_price_iron", 50) or 50)
+    p_nick  = float(features.get("mineral_price_nickel", 200) or 200)
+    p_cob   = float(features.get("mineral_price_cobalt", 500) or 500)
+    p_plat  = float(features.get("mineral_price_platinum", 2000) or 2000)
+    p_rare  = float(features.get("mineral_price_rare_earth", 800) or 800)
+    p_water = float(features.get("mineral_price_water", 100) or 100)
+    mass    = float(features.get("mass", 100) or 100)
+    cycle   = float(features.get("economic_cycle_indicator", 1.0) or 1.0)
 
-    if ai_est > 0 and analyst_est > 0:
-        blended = 0.65 * ai_est + 0.35 * analyst_est
-    elif ai_est > 0:
-        blended = ai_est
-    elif analyst_est > 0:
-        blended = analyst_est
-    else:
-        blended = 0.0
-
-    return max(0.0, blended * 0.75 - 20.0)
+    weighted = (iron*p_iron + nickel*p_nick + cobalt*p_cob
+                + plat*p_plat + rare*p_rare + water*p_water)
+    estimated = np.log1p(mass) * weighted * cycle * 0.5
+    return max(0.0, estimated)
 
 
 # ── Core bidding logic ────────────────────────────────────────────────────────
@@ -172,23 +228,18 @@ def price_asteroids(asteroids, capital, round_info, model=None):
             pred_delay = model["delay_model"].predict(df_batch)
 
             # Two-stage catastrophe probabilities
-            # Stage 1: P(any catastrophe)
             p_any_cat = model["binary_cat_model"].predict_proba(df_batch)[:, 1]
 
-            # Stage 2: P(type | catastrophe) — 3-class 0-indexed
-            # 0=structural_collapse, 1=toxic_outgassing, 2=void_rock
             type_probs       = model["type_model"].predict_proba(df_batch)
             p_collapse_given = type_probs[:, _TYPE_COLLAPSE]
             p_outgas_given   = type_probs[:, _TYPE_OUTGAS]
             p_void_given     = type_probs[:, _TYPE_VOID]
 
-            # Normalize (safety)
             type_sum         = p_collapse_given + p_outgas_given + p_void_given + 1e-9
             p_collapse_given = p_collapse_given / type_sum
             p_outgas_given   = p_outgas_given   / type_sum
             p_void_given     = p_void_given     / type_sum
 
-            # Joint probabilities
             p_none     = 1.0 - p_any_cat
             p_collapse = p_any_cat * p_collapse_given
             p_outgas   = p_any_cat * p_outgas_given
@@ -236,7 +287,8 @@ def price_asteroids(asteroids, capital, round_info, model=None):
     discounted_ev    = expected_recovered * discount_factors
 
     # ── Step 5: Competitive bid shading ──────────────────────────────────────
-    # Optimized by simulator: base shade 0.54-0.62 range (10% below original)
+    # With lower prediction accuracy (R²=0.785 vs 0.943), more uncertainty
+    # means we should shade bids slightly more conservatively
     market_history  = round_info.get("market_history")
     competitive_adj = 1.0
     if market_history:
@@ -253,7 +305,7 @@ def price_asteroids(asteroids, capital, round_info, model=None):
         elif win_rate > 0.25:
             competitive_adj = 0.94
 
-    # Simulator found 0.90x of original shade was optimal
+    # Slightly more conservative shade given higher prediction uncertainty
     base_shade   = 0.54 + 0.009 * min(n_competitors, 8)
     shade_factor = base_shade * competitive_adj
 
@@ -278,22 +330,18 @@ def price_asteroids(asteroids, capital, round_info, model=None):
     # ── Step 8: Raw bids ──────────────────────────────────────────────────────
     raw_bids = discounted_ev * shade_factor * late_game_mult * liq_mult
 
-    # Floor: skip bids below minimum profit threshold
     min_profit_threshold = max(15.0, capital * 0.005)
     raw_bids = np.where(raw_bids < min_profit_threshold, 0.0, raw_bids)
 
-    # Hard filter: skip asteroids with >35% total catastrophe probability
-    # At this threshold v2 XGBoost showed precision=0.989, recall=1.000
+    # Hard filter: catastrophe probability > 35%
     p_catastrophe = 1.0 - p_none
     raw_bids = np.where(p_catastrophe > 0.35, 0.0, raw_bids)
 
-    # Per-bid cap: no single asteroid absorbs more than 18% of capital
+    # Per-bid cap: 18% of capital max
     per_bid_cap = capital * 0.18
     raw_bids    = np.minimum(raw_bids, per_bid_cap)
 
     # ── Step 9: Portfolio budget allocation ──────────────────────────────────
-    # Spend at most 65% of capital per round (simulator: 60-70% flat, midpoint)
-    # Greedy allocation rather than uniform scaling
     budget_cap = capital * 0.65
     total_raw  = raw_bids.sum()
 
